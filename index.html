@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Budget & Attack Money</title>
+  <style>
+    :root{
+      --bg:#0b1020;--card:#121833;--muted:#8ea0c9;--text:#e8eeff;--accent:#6aa1ff;--accent-2:#1b57ff;
+      --yellow:#fffacd;--blue:#b7dee8;--border:#1e2a52;--good:#30d158;--bad:#ff453a
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    h1{font-size:22px;margin:0}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{border:1px solid var(--border);background:transparent;color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer}
+    .tab[aria-selected="true"], .tab:hover{background:var(--accent);border-color:transparent}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-top:16px}
+    .grid{display:grid;grid-template-columns: 280px 1fr;gap:10px;align-items:center}
+    .grid .label{color:var(--muted)}
+    input[type="number"], input[type="text"], select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#0e1530;color:var(--text)}
+    input[type="number"].yellow, input[type="text"].yellow, select.yellow{background:var(--yellow);color:#222}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .pill{padding:6px 10px;border:1px solid var(--border);border-radius:999px;color:var(--muted)}
+    .muted{color:var(--muted)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .big{font-size:28px;font-weight:700}
+    .blue{background:var(--blue);color:#000;border-radius:12px;padding:8px 12px;display:inline-block}
+    .pos{color:var(--good)} .neg{color:var(--bad)}
+    .sp{height:10px}
+    .section-title{font-size:18px;margin:0 0 10px 0}
+    .hr{height:1px;background:var(--border);margin:14px 0}
+    .hint{font-size:13px;color:var(--muted)}
+    .btn{background:var(--accent);border:none;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn:hover{background:var(--accent-2)}
+    .right{margin-left:auto}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{border:1px solid var(--border);padding:10px;text-align:left}
+    .table th{color:var(--muted);font-weight:600;background:#0e1530}
+    .kicker{font-weight:600;color:#9fb0df}
+    .notice{background:#0e1530;border:1px dashed var(--border);padding:12px;border-radius:12px}
+    a{color:#9ec5ff}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>💰 Budget & Attack Money</h1>
+    <div class="row">
+      <button class="btn" id="exportBtn" title="Download a JSON backup of your data">Export</button>
+      <label class="btn" for="importFile" title="Import a JSON backup">Import</label>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+      <button class="tab" id="resetBtn" title="Reset all fields">Reset</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" data-tab="instructions" aria-selected="true">Instructions</button>
+    <button class="tab" data-tab="estimator">Estimator</button>
+    <button class="tab" data-tab="payslip">Payslip Entry</button>
+    <button class="tab" data-tab="leftover">Leftover Budget</button>
+    <button class="tab" data-tab="attack">Attack Money</button>
+  </nav>
+
+  <section class="card" id="tab-instructions" role="tabpanel">
+    <h2 class="section-title">Start Here</h2>
+    <div class="notice">
+      <div class="row" style="align-items:center;gap:12px">
+        <span class="pill">Step 1</span>
+        <span class="kicker">Choose your Net Source in Leftover Budget</span>
+      </div>
+      <div class="sp"></div>
+      <ul>
+        <li><b>Estimator</b>: plan ahead using biweekly gross + deduction %.</li>
+        <li><b>Payslip Entry</b>: most accurate — use your real pay stub.</li>
+        <li><b>Manual</b>: type a monthly net for what‑if scenarios.</li>
+      </ul>
+      <div class="hr"></div>
+      <p class="hint">Attack Money uses your <b>Monthly Leftover</b> automatically. The Attack Money input is auto‑linked.</p>
+    </div>
+  </section>
+
+  <section class="card" id="tab-estimator" role="tabpanel" hidden>
+    <h2 class="section-title">Biweekly → Monthly Net Estimator</h2>
+    <div class="grid">
+      <div class="label">Biweekly Gross (before deductions)</div>
+      <input class="yellow" type="number" step="0.01" id="est_biweeklyGross" placeholder="e.g., 3880.20" />
+      <div class="label">Deduction % (tax, CPP, EI, etc.)</div>
+      <input class="yellow" type="number" step="0.1" id="est_deductionPct" placeholder="e.g., 30" />
+      <div class="label">Monthly Taxable Allowances (if any)</div>
+      <input class="yellow" type="number" step="0.01" id="est_monthlyAllow" placeholder="0" />
+      <div class="label">Estimated Monthly Net (auto)</div>
+      <div id="est_monthlyNet" class="mono"></div>
+    </div>
+    <div class="hr"></div>
+    <div class="hint">Formula: biweekly gross × (1 − deduction %) × (26 ÷ 12) + monthly allowances.</div>
+  </section>
+
+  <section class="card" id="tab-payslip" role="tabpanel" hidden>
+    <h2 class="section-title">Payslip Entry</h2>
+    <div class="grid">
+      <div class="label">Net This Pay (biweekly)</div>
+      <input class="yellow" type="number" step="0.01" id="pay_netThisPay" placeholder="e.g., 2680.00" />
+      <div class="label">Monthly Net (auto)</div>
+      <div id="pay_monthlyNet" class="mono"></div>
+    </div>
+    <div class="hr"></div>
+    <div class="hint">Formula: net this pay × (26 ÷ 12).</div>
+  </section>
+
+  <section class="card" id="tab-leftover" role="tabpanel" hidden>
+    <h2 class="section-title">Leftover Budget</h2>
+    <div class="grid">
+      <div class="label">Net Source</div>
+      <select id="lo_netSource" class="yellow">
+        <option>Estimator</option><option>Payslip Entry</option><option>Manual</option>
+      </select>
+      <div class="label">Manual Monthly Net (only if Manual selected)</div>
+      <input class="yellow" type="number" step="0.01" id="lo_manualNet" placeholder="e.g., 6500" />
+      <div class="label">Monthly Bills & Minimums (total)</div>
+      <input class="yellow" type="number" step="0.01" id="lo_bills" placeholder="e.g., 5941.42" />
+      <div class="label">Master Leftover (auto)</div>
+      <div id="lo_leftover" class="mono"></div>
+    </div>
+    <div class="hr"></div>
+    <div class="hint">This is the output Attack Money uses automatically.</div>
+  </section>
+
+  <section class="card" id="tab-attack" role="tabpanel" hidden>
+    <h2 class="section-title">Attack Money</h2>
+    <div class="grid">
+      <div class="label">Monthly Leftover (auto from Leftover Budget)</div>
+      <div id="atk_monthlyLeftover" class="mono"></div>
+      <div class="label">Cushion to Keep (don’t attack this)</div>
+      <input class="yellow" type="number" step="0.01" id="atk_cushion" placeholder="e.g., 100" />
+      <div class="label">Attack Money for Credit Cards (Avalanche EXTRA)</div>
+      <div id="atk_amount" class="mono big blue" title="Only the amount is highlighted blue & bold"></div>
+    </div>
+    <div class="hr"></div>
+    <div class="row">
+      <div class="pill">If negative leftover → adjust bills or source</div>
+      <div class="pill">Blue amount updates as you edit inputs</div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const fmt = (n) => isFinite(n) ? n.toLocaleString('en-CA',{style:'currency',currency:'CAD',maximumFractionDigits:2}) : '—';
+  const valNum = el => parseFloat(el.value || '');
+  const save = () => {
+    const data = {
+      est_biweeklyGross: $('#est_biweeklyGross').value,
+      est_deductionPct: $('#est_deductionPct').value,
+      est_monthlyAllow: $('#est_monthlyAllow').value,
+      pay_netThisPay: $('#pay_netThisPay').value,
+      lo_netSource: $('#lo_netSource').value,
+      lo_manualNet: $('#lo_manualNet').value,
+      lo_bills: $('#lo_bills').value,
+      atk_cushion: $('#atk_cushion').value,
+    };
+    localStorage.setItem('budget_attack_v1', JSON.stringify(data));
+  };
+  const load = () => {
+    try{
+      const data = JSON.parse(localStorage.getItem('budget_attack_v1')||'{}');
+      if(!data) return;
+      if(data.est_biweeklyGross!=null) $('#est_biweeklyGross').value = data.est_biweeklyGross;
+      if(data.est_deductionPct!=null) $('#est_deductionPct').value = data.est_deductionPct;
+      if(data.est_monthlyAllow!=null) $('#est_monthlyAllow').value = data.est_monthlyAllow;
+      if(data.pay_netThisPay!=null) $('#pay_netThisPay').value = data.pay_netThisPay;
+      if(data.lo_netSource!=null) $('#lo_netSource').value = data.lo_netSource;
+      if(data.lo_manualNet!=null) $('#lo_manualNet').value = data.lo_manualNet;
+      if(data.lo_bills!=null) $('#lo_bills').value = data.lo_bills;
+      if(data.atk_cushion!=null) $('#atk_cushion').value = data.atk_cushion;
+    }catch(e){}
+  };
+  function computeEstimator(){
+    const gross = valNum($('#est_biweeklyGross')) || 0;
+    const dedPct = (valNum($('#est_deductionPct')) || 0)/100;
+    const allow = valNum($('#est_monthlyAllow')) || 0;
+    const biweeklyNet = gross * (1 - dedPct);
+    const monthlyNet = biweeklyNet * (26/12) + allow;
+    $('#est_monthlyNet').textContent = fmt(monthlyNet);
+    return monthlyNet;
+  }
+  function computePayslip(){
+    const netPay = valNum($('#pay_netThisPay')) || 0;
+    const monthlyNet = netPay * (26/12);
+    $('#pay_monthlyNet').textContent = fmt(monthlyNet);
+    return monthlyNet;
+  }
+  function computeLeftover(){
+    const src = $('#lo_netSource').value;
+    const bills = valNum($('#lo_bills')) || 0;
+    const manual = valNum($('#lo_manualNet')) || 0;
+    const est = computeEstimator();
+    const pay = computePayslip();
+    let monthlyNet = 0;
+    if(src === 'Estimator') monthlyNet = est;
+    else if(src === 'Payslip Entry') monthlyNet = pay;
+    else monthlyNet = manual;
+    const leftover = monthlyNet - bills;
+    $('#lo_leftover').textContent = fmt(leftover);
+    return leftover;
+  }
+  function computeAttack(){
+    const leftover = computeLeftover();
+    $('#atk_monthlyLeftover').textContent = fmt(leftover);
+    const cushion = valNum($('#atk_cushion')) || 0;
+    const attack = Math.max(0, leftover - cushion);
+    $('#atk_amount').textContent = fmt(attack);
+  }
+  const tabs = document.querySelectorAll('.tab[data-tab]');
+  tabs.forEach(t=>{
+    t.addEventListener('click',()=>{
+      tabs.forEach(x=>x.setAttribute('aria-selected','false'));
+      t.setAttribute('aria-selected','true');
+      const id = t.dataset.tab;
+      document.querySelectorAll('[role="tabpanel"]').forEach(p=>p.hidden=true);
+      document.getElementById('tab-'+id).hidden = false;
+    })
+  })
+  ['est_biweeklyGross','est_deductionPct','est_monthlyAllow','pay_netThisPay','lo_netSource','lo_manualNet','lo_bills','atk_cushion']
+    .forEach(id=>{
+      const el = document.getElementById(id);
+      el.addEventListener('input',()=>{computeAttack();save();});
+      el.addEventListener('change',()=>{computeAttack();save();});
+    });
+  document.getElementById('exportBtn').addEventListener('click',()=>{
+    const blob = new Blob([localStorage.getItem('budget_attack_v1')||'{}'],{type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'budget_attack_backup.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  document.getElementById('importFile').addEventListener('change',(e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt)=>{
+      try{
+        localStorage.setItem('budget_attack_v1', evt.target.result);
+        load();
+        computeAttack();
+        alert('Imported!');
+      }catch(err){ alert('Import failed'); }
+    };
+    reader.readAsText(file);
+  });
+  document.getElementById('resetBtn').addEventListener('click',()=>{
+    if(confirm('Reset all fields?')){
+      localStorage.removeItem('budget_attack_v1');
+      document.querySelectorAll('input').forEach(i=>i.value='');
+      document.getElementById('lo_netSource').value='Estimator';
+      computeAttack();
+    }
+  })
+  load();
+  computeAttack();
+})();
+</script>
+</body>
+</html>
